@@ -1,0 +1,555 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  ParamAssessmentNameLower:
+    Type: String
+    Description: The kebab case value to name deployed resources which require a lower-case name (like S3 buckets).
+    AllowedPattern: '[a-z0-9\-\.]{3,63}'
+  ParamAssessmentNameUpper:
+    Type: String
+    Description: The camel case value to name deployed resources (like the Audit Manager Assessment resource).
+    AllowedPattern: '[A-Za-z0-9]{3,63}'
+  ParamAssessmentFrameworkId:
+    Type: String
+    Description: The default value is set to use "AWS Audit Manager Sample Framework"
+    Default: '2ad0cca9-a1bf-3b4a-9769-ef78c51902ba'
+  ParamFlagCreateAssessment:
+    Type: String
+    Description: Set to 'true' to create the Audit Manager Assessment. Set to 'false' if you want to skip this (e.g. if you want to deploy AWS Config or Security Hub first).
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+  ParamFlagEnableSecurityHub:
+    Type: String
+    Description: Set to 'true' to enable Security Hub in the region. Set to 'false' if it has already been enabled, or you don't want to enable it.
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+  ParamFlagEnableAwsConfig:
+    Type: String
+    Description: Set to 'true' to enable AWS Config and deploy related rules and resources. Set to 'false' to skip AWS Config (e.g. if you already have it enabled).
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+Conditions:
+  FlagCreateAssessment: !Equals [!Ref ParamFlagCreateAssessment, 'true']
+  FlagEnableSecurityHub: !Equals [!Ref ParamFlagEnableSecurityHub, 'true']
+  FlagEnableAwsConfig: !Equals [!Ref ParamFlagEnableAwsConfig, 'true']
+
+Resources:
+
+  AssessmentReportsBucket:
+    Condition: FlagCreateAssessment
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub '${ParamAssessmentNameLower}-reports'
+
+  AssessmentReportsBucketPolicy:
+    Condition: FlagCreateAssessment
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AssessmentReportsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: ['s3:*']
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:s3:::${AssessmentReportsBucket}
+              - !Sub arn:aws:s3:::${AssessmentReportsBucket}/*
+            Principal:
+              AWS: [!GetAtt AssessmentProcessOwnerRole.Arn]
+              Service: ['auditmanager.amazonaws.com']
+
+  AssessmentProcessOwnerRole:
+    Condition: FlagCreateAssessment
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ['auditmanager.amazonaws.com']
+            Action: ['sts:AssumeRole']
+      Description: String
+      Policies:
+        - PolicyName: 'AssessmentProcessOwnerRole'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'auditmanager:*'
+                  - 'cloudtrail:*'
+                  - 'config:*'
+                  - 'securityhub:*'
+                  - 'ec2:*'
+                  - 's3:*'
+                  - 'iam:*'
+                Resource: '*'
+              - Effect: Allow
+                Action: 'iam:CreateServiceLinkedRole'
+                Resource: '*'
+                Condition:
+                    StringLike:
+                        'iam:AWSServiceName': 'auditmanager.amazonaws.com'
+      RoleName: !Ref ParamAssessmentNameUpper
+
+  Assessment:
+    Condition: FlagCreateAssessment
+    Type: AWS::AuditManager::Assessment
+    Properties:
+      AssessmentReportsDestination:
+        Destination: !Sub 's3://${AssessmentReportsBucket}'
+        DestinationType: S3
+      AwsAccount:
+        Id: !Sub '${AWS::AccountId}'
+      Description: 'PoC for running assessments from CloudFormation'
+      FrameworkId: !Ref ParamAssessmentFrameworkId
+      Name: !Ref ParamAssessmentNameUpper
+      Roles:
+        - RoleArn: !GetAtt AssessmentProcessOwnerRole.Arn
+          RoleType: PROCESS_OWNER # PROCESS_OWNER | RESOURCE_OWNER
+      Scope:
+        AwsAccounts:
+          - Id: !Sub '${AWS::AccountId}'
+        AwsServices:
+          - ServiceName: a4b
+          - ServiceName: acm
+          - ServiceName: acm-pca
+          - ServiceName: amazonmq
+          - ServiceName: amplify
+          - ServiceName: apigateway
+          - ServiceName: appconfig
+          - ServiceName: appflow
+          - ServiceName: appmesh
+          - ServiceName: appstream
+          - ServiceName: appsync
+          - ServiceName: athena
+          - ServiceName: autoscaling
+          - ServiceName: backup
+          - ServiceName: batch
+          - ServiceName: braket
+          - ServiceName: budgets
+          - ServiceName: chime
+          - ServiceName: cloud9
+          - ServiceName: clouddirectory
+          - ServiceName: cloudformation
+          - ServiceName: cloudfront
+          - ServiceName: cloudhsm
+          - ServiceName: cloudsearch
+          - ServiceName: cloudtrail
+          - ServiceName: cloudwatch
+          - ServiceName: codeartifact
+          - ServiceName: codebuild
+          - ServiceName: codecommit
+          - ServiceName: codedeploy
+          - ServiceName: codeguru-profiler
+          - ServiceName: codepipeline
+          - ServiceName: codestar
+          - ServiceName: cognito-identity
+          - ServiceName: comprehend
+          - ServiceName: compute-optimizer
+          - ServiceName: config
+          - ServiceName: connect
+          - ServiceName: data exchange
+          - ServiceName: datapipeline
+          - ServiceName: datasync
+          - ServiceName: detective
+          - ServiceName: devicefarm
+          - ServiceName: directconnect
+          - ServiceName: discovery
+          - ServiceName: ds
+          - ServiceName: dynamodb
+          - ServiceName: ebs
+          - ServiceName: ec2
+          - ServiceName: ecr
+          - ServiceName: ecs
+          - ServiceName: eks
+          - ServiceName: elastic-inference
+          - ServiceName: elasticache
+          - ServiceName: elasticbeanstalk
+          - ServiceName: elasticfilesystem
+          - ServiceName: elasticloadbalancing
+          - ServiceName: elasticmapreduce
+          - ServiceName: elastictranscoder
+          - ServiceName: entitlement-marketplace
+          - ServiceName: es
+          - ServiceName: events
+          - ServiceName: fms
+          - ServiceName: forecast
+          - ServiceName: frauddetector
+          - ServiceName: fsx
+          - ServiceName: gamelift
+          - ServiceName: glacier
+          - ServiceName: globalaccelerator
+          - ServiceName: glue
+          - ServiceName: greengrass
+          - ServiceName: groundstation
+          - ServiceName: guardduty
+          - ServiceName: health
+          - ServiceName: honeycode
+          - ServiceName: iam
+          - ServiceName: imagebuilder
+          - ServiceName: inspector
+          - ServiceName: iot
+          - ServiceName: iot1click
+          - ServiceName: iotanalytics
+          - ServiceName: iotevents
+          - ServiceName: iotsitewise
+          - ServiceName: iotthingsgraph
+          - ServiceName: ivs
+          - ServiceName: kafka
+          - ServiceName: kendra
+          - ServiceName: kinesis
+          - ServiceName: kms
+          - ServiceName: lakeformation
+          - ServiceName: lambda
+          - ServiceName: lex
+          - ServiceName: license-manager
+          - ServiceName: lightsail
+          - ServiceName: machinelearning
+          - ServiceName: macie
+          - ServiceName: managedblockchain
+          - ServiceName: mediaconnect
+          - ServiceName: mediaconvert
+          - ServiceName: medialive
+          - ServiceName: mediapackage
+          - ServiceName: mediastore
+          - ServiceName: mediatailor
+          - ServiceName: migrationhub
+          - ServiceName: networkmanager
+          - ServiceName: opsworks
+          - ServiceName: organizations
+          - ServiceName: outposts
+          - ServiceName: personalize
+          - ServiceName: pinpoint
+          - ServiceName: polly
+          - ServiceName: qldb
+          - ServiceName: quicksight
+          - ServiceName: ram
+          - ServiceName: rds
+          - ServiceName: redshift
+          - ServiceName: rekognition
+          - ServiceName: resource-groups
+          - ServiceName: robomaker
+          - ServiceName: route53
+          - ServiceName: s3
+          - ServiceName: sagemaker
+          - ServiceName: savingsplans
+          - ServiceName: sdb
+          - ServiceName: secretsmanager
+          - ServiceName: securityhub
+          - ServiceName: serverlessrepo
+          - ServiceName: servicecatalog
+          - ServiceName: servicediscovery
+          - ServiceName: servicequotas
+          - ServiceName: ses
+          - ServiceName: shield
+          - ServiceName: signer
+          - ServiceName: sms
+          - ServiceName: snowball
+          - ServiceName: sns
+          - ServiceName: sqs
+          - ServiceName: ssm
+          - ServiceName: sso
+          - ServiceName: states
+          - ServiceName: storagegateway
+          - ServiceName: support
+          - ServiceName: swf
+          - ServiceName: textract
+          - ServiceName: timestream
+          - ServiceName: transcribe
+          - ServiceName: transfer
+          - ServiceName: translate
+          - ServiceName: waf
+          - ServiceName: workdocs
+          - ServiceName: worklink
+          - ServiceName: workmail
+          - ServiceName: workspaces
+          - ServiceName: xray
+      Status: ACTIVE # ACTIVE | INACTIVE
+
+  SecurityHub:
+    Condition: FlagEnableSecurityHub
+    Type: AWS::SecurityHub::Hub
+
+  ConfigConfigurationRecorder:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::Config::ConfigurationRecorder
+    Properties:
+      Name: !Ref ParamAssessmentNameUpper
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
+      RoleARN: !GetAtt ConfigRole.Arn
+
+  ConfigRole:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWS_ConfigRole'
+      Policies:
+        - PolicyName: Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:PutObjectAcl'
+                Resource: !Sub '${ConfigBucket.Arn}/*'
+                Condition:
+                  StringLike:
+                    's3:x-amz-acl': bucket-owner-full-control
+              - Effect: Allow
+                Action:
+                  - 's3:GetBucketAcl'
+                Resource: !GetAtt ConfigBucket.Arn
+
+  ConfigDeliveryChannel:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::Config::DeliveryChannel
+    Properties:
+      ConfigSnapshotDeliveryProperties:
+          DeliveryFrequency: One_Hour #  One_Hour | Six_Hours | Three_Hours | Twelve_Hours | TwentyFour_Hours
+      Name:  !Ref ParamAssessmentNameUpper
+      S3BucketName: !Ref ConfigBucket
+
+  ConfigBucket:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ParamAssessmentNameLower}-config'
+
+  ConfigBucketPolicy:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ConfigBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AWSConfigBucketPermissionsCheck
+            Effect: Allow
+            Principal:
+              Service:
+                - config.amazonaws.com
+            Action: 's3:GetBucketAcl'
+            Resource: !GetAtt ConfigBucket.Arn
+          - Sid: AWSConfigBucketExistenceCheck
+            Effect: Allow
+            Principal:
+              Service:
+                - config.amazonaws.com
+            Action: 's3:ListBucket'
+            Resource: !GetAtt ConfigBucket.Arn
+          - Sid: AWSConfigBucketDelivery
+            Effect: Allow
+            Principal:
+              Service:
+                - config.amazonaws.com
+            Action: 's3:PutObject'
+            Resource: !Sub '${ConfigBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                's3:x-amz-acl': bucket-owner-full-control
+
+  # https://docs.aws.amazon.com/config/latest/developerguide/cloudtrail-security-trail-enabled.html
+  ConfigRule1:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::Config::ConfigRule
+    DependsOn:
+      - ConfigConfigurationRecorder
+      - ConfigDeliveryChannel
+    Properties:
+      MaximumExecutionFrequency: One_Hour # One_Hour | Six_Hours | Three_Hours | Twelve_Hours | TwentyFour_Hours (default)
+      Source:
+        Owner: AWS
+        SourceIdentifier: 'CLOUDTRAIL_SECURITY_TRAIL_ENABLED'
+
+  # https://docs.aws.amazon.com/config/latest/developerguide/securityhub-enabled.html
+  ConfigRule2:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::Config::ConfigRule
+    DependsOn:
+      - ConfigConfigurationRecorder
+      - ConfigDeliveryChannel
+    Properties:
+      MaximumExecutionFrequency: One_Hour # One_Hour | Six_Hours | Three_Hours | Twelve_Hours | TwentyFour_Hours (default)
+      Source:
+        Owner: AWS
+        SourceIdentifier: 'SECURITYHUB_ENABLED'
+
+  # https://docs.aws.amazon.com/config/latest/developerguide/s3-default-encryption-kms.html
+  ConfigRule3:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::Config::ConfigRule
+    DependsOn:
+      - ConfigConfigurationRecorder
+      - ConfigDeliveryChannel
+    Properties:
+      Source:
+        Owner: AWS
+        SourceIdentifier: 'S3_DEFAULT_ENCRYPTION_KMS'
+
+  # https://docs.aws.amazon.com/config/latest/developerguide/s3-bucket-versioning-enabled.html
+  ConfigRule4:
+    Condition: FlagEnableAwsConfig
+    Type: AWS::Config::ConfigRule
+    DependsOn:
+      - ConfigConfigurationRecorder
+      - ConfigDeliveryChannel
+    Properties:
+      Source:
+        Owner: AWS
+        SourceIdentifier: 'S3_BUCKET_VERSIONING_ENABLED'
+
+Outputs:
+  AssessmentReportsBucketName:
+    Condition: FlagCreateAssessment
+    Value: !Ref AssessmentReportsBucket
+  AssessmentReportsBucketArn:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt AssessmentReportsBucket.Arn
+  AssessmentReportsBucketDomainName:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt AssessmentReportsBucket.DomainName
+  AssessmentReportsBucketDualStackDomainName:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt AssessmentReportsBucket.DualStackDomainName
+  AssessmentReportsBucketRegionalDomainName:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt AssessmentReportsBucket.RegionalDomainName
+  AssessmentReportsBucketWebsiteURL:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt AssessmentReportsBucket.WebsiteURL
+  AssessmentProcessOwnerRoleName:
+    Condition: FlagCreateAssessment
+    Value: !Ref AssessmentProcessOwnerRole
+  AssessmentProcessOwnerRoleArn:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt AssessmentProcessOwnerRole.Arn
+  AssessmentProcessOwnerRoleId:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt AssessmentProcessOwnerRole.RoleId
+  AssessmentId:
+    Condition: FlagCreateAssessment
+    Value: !Ref Assessment
+  AssessmentArn:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt Assessment.Arn
+  AssessmentAssessmentId:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt Assessment.AssessmentId
+  AssessmentFrameworkId:
+    Condition: FlagCreateAssessment
+    Value: !GetAtt Assessment.FrameworkId
+  # This wont work as 'CreationTime' doesn't resolve to a string
+  # Instead you get this weird error: "Template format error: Every Value member must be a string."
+  # AssessmentCreationTime:
+  #   Value: !GetAtt Assessment.CreationTime
+  # This wont work...
+  # Instead you get this error: "Attribute 'Delegations' does not exist"
+  # AssessmentDelegations:
+  #   Value: !Join [',', !GetAtt Assessment.Delegations]
+  SecurityHubArn:
+    Condition: FlagEnableSecurityHub
+    Value: !Ref SecurityHub
+  ConfigConfigurationRecorderName:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigConfigurationRecorder
+  ConfigRoleName:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigRole
+  ConfigRoleArn:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRole.Arn
+  ConfigRoleRoleId:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRole.RoleId
+  ConfigDeliveryChannelName:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigDeliveryChannel
+  ConfigBucketName:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigBucket
+  ConfigBucketArn:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigBucket.Arn
+  ConfigBucketDomainName:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigBucket.DomainName
+  ConfigBucketDualStackDomainName:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigBucket.DualStackDomainName
+  ConfigBucketRegionalDomainName:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigBucket.RegionalDomainName
+  ConfigBucketWebsiteURL:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigBucket.WebsiteURL
+  ConfigRule1Id:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigRule1
+  ConfigRule1Arn:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule1.Arn
+  ConfigRule1ComplianceType:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule1.Compliance.Type
+  ConfigRule1ConfigRuleId:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule1.ConfigRuleId
+  ConfigRule2Id:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigRule2
+  ConfigRule2Arn:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule2.Arn
+  ConfigRule2ComplianceType:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule2.Compliance.Type
+  ConfigRule2ConfigRuleId:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule2.ConfigRuleId
+  ConfigRule3Id:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigRule3
+  ConfigRule3Arn:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule3.Arn
+  ConfigRule3ComplianceType:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule3.Compliance.Type
+  ConfigRule3ConfigRuleId:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule3.ConfigRuleId
+  ConfigRule4Id:
+    Condition: FlagEnableAwsConfig
+    Value: !Ref ConfigRule4
+  ConfigRule4Arn:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule4.Arn
+  ConfigRule4ComplianceType:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule4.Compliance.Type
+  ConfigRule4ConfigRuleId:
+    Condition: FlagEnableAwsConfig
+    Value: !GetAtt ConfigRule4.ConfigRuleId
