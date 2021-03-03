@@ -8,8 +8,8 @@ This repository hosts the [AWS CloudFormation](https://aws.amazon.com/cloudforma
 
 [Audit Manager](https://aws.amazon.com/audit-manager/) needs to be setup before you can use it for the first time:
 
-| Step | Description                                                                                                                                                                                                                  |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Step | Description                                                                                                                                                                                                             |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | ![Audit Manager Console showing setup button](documentation/enable-01.png) Navigate to the Audit Manager [console](https://console.aws.amazon.com/auditmanager/home) and click the **Set up AWS Audit Manager** button. |
 | 2a   | ![Audit Manager Settings](documentation/enable-02a.png) Unchecked the `Customize encryption settings (advanced)` to minimise any possibility of configuration errors.                                                   |
 | 2b   | ![Audit Manager Settings](documentation/enable-02b.png) Leave everything else at default settings and click **Complete setup**.                                                                                         |
@@ -28,7 +28,7 @@ The first step is to save the template locally and then navigate to the [AWS Clo
 | 5    | ![Configure options](documentation/deploy-04.png) Configure any other stack options as required then click **Next**.                                  |
 | 6    | ![Final review](documentation/deploy-05.png) Perform a final review and acknowledge that named IAM Roles will be created then click **Create stack**. |
 
-Once the stack has deployed, [click here](https://console.aws.amazon.com/auditmanager/home#/assessments) to view the newly created Assessment.                                     |
+Once the stack has deployed, [click here](https://console.aws.amazon.com/auditmanager/home#/assessments) to view the newly created Assessment.
 
 ## Finding Frameworks
 
