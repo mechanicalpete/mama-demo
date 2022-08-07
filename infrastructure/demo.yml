@@ -51,6 +51,11 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
       BucketName: !Sub '${ParamAssessmentNameLower}-reports'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
   AssessmentReportsBucketPolicy:
     Condition: FlagCreateAssessment
@@ -336,7 +341,16 @@ Resources:
     Condition: FlagEnableAwsConfig
     Type: AWS::S3::Bucket
     Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
       BucketName: !Sub '${ParamAssessmentNameLower}-config'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
   ConfigBucketPolicy:
     Condition: FlagEnableAwsConfig
@@ -458,9 +472,9 @@ Outputs:
   AssessmentAssessmentId:
     Condition: FlagCreateAssessment
     Value: !GetAtt Assessment.AssessmentId
-  AssessmentFrameworkId:
-    Condition: FlagCreateAssessment
-    Value: !GetAtt Assessment.FrameworkId
+  # AssessmentFrameworkId:
+  #   Condition: FlagCreateAssessment
+  #   Value: !GetAtt Assessment.FrameworkId
   # This wont work as 'CreationTime' doesn't resolve to a string
   # Instead you get this weird error: "Template format error: Every Value member must be a string."
   # AssessmentCreationTime:
